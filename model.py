@@ -1,11 +1,8 @@
-import pickle as pkl
-
-import numpy as np
-
 import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader
 
-INPUT_CHANNELS = 64
+from opportunity_dataset import OpportunityDataset
 
 CONV_HIDDEN_CHANNELS = 64
 
@@ -15,47 +12,109 @@ LSTM_HIDDEN_CHANNELS = 128
 
 NUM_SENSOR_CHANNELS = 113
 
+INPUT_CHANNELS = NUM_SENSOR_CHANNELS
+
 NUM_CLASSES = 18
 
 DROP_RATE = 0.5
 
+# Training parameters
+LEARNING_RATE = 10**-3
+EPOCHS = 3
 
-def train(train_loader, net, optimizer, criterion):
+BATCH_SIZE = 100
+DECAY = 0.9
+
+
+def try_gpu():
+    """
+    If GPU is available, return torch.device as cuda:0; else return torch.device
+    as cpu.
+    """
+    if torch.cuda.is_available():
+        print("GPU Available")
+        device = torch.device('cuda:0')
+    else:
+        print("GPU NOT Available")
+        device = torch.device('cpu')
+    return device
+
+
+def evaluate_accuracy(data_loader, net, device=torch.device('cpu')):
+    """Evaluate accuracy of a model on the given data set."""
+    net.eval()  # make sure network is in evaluation mode
+
+    # init
+    acc_sum = torch.tensor([0], dtype=torch.float32, device=device)
+    n = 0
+
+    for X, y in data_loader:
+        # Copy the data to device.
+        X, y = X.to(device), y.to(device)
+        with torch.no_grad():
+            y = y.long()
+            acc_sum += torch.sum((torch.argmax(net(X), dim=1) == y))
+            n += y.shape[0]  # increases with the number of samples in the batch
+    return acc_sum.item()/n
+
+
+def train(train_loader, test_loader, net, optimizer, criterion):
     """
     Trains network for one epoch in batches.
 
     Args:
         train_loader: Data loader for training set.
+        test_loader: Data loader for test set.
         net: Neural network model.
         optimizer: Optimizer (e.g. SGD).
         criterion: Loss function (e.g. cross-entropy loss).
     """
 
-    avg_loss = 0
-    correct = 0
-    total = 0
+    train_losses = []
+    train_accs = []
+    test_accs = []
 
     # iterate through batches
-    for i, data in enumerate(train_loader):
-        # get the inputs; data is a list of [inputs, labels]
-        inputs, labels = data
+    device = try_gpu()
 
-        # zero the parameter gradients
-        optimizer.zero_grad()
+    for epoch in range(EPOCHS):
 
-        # forward + backward + optimize
-        outputs = net(inputs)
-        loss = criterion(outputs, labels)
-        loss.backward()
-        optimizer.step()
+        # Network in training mode and to device
+        net.train()
+        net.to(device)
 
-        # keep track of loss and accuracy
-        avg_loss += loss
-        _, predicted = torch.max(outputs.data, 1)
-        total += labels.size(0)
-        correct += (predicted == labels).sum().item()
+        # Training loop
+        for i, (x_batch, y_batch) in enumerate(train_loader):
+            # Set to same device
+            x_batch, y_batch = x_batch.to(device), y_batch.to(device)
 
-    return avg_loss / len(train_loader), 100 * correct / total
+            # Set the gradients to zero
+            optimizer.zero_grad()
+
+            # Perform forward pass
+            y_pred = net(x_batch)
+
+            # Compute the loss
+            loss = criterion(y_pred, y_batch)
+            train_losses.append(loss)
+
+            # Backward computation and update
+            loss.backward()
+            optimizer.step()
+
+        # Compute train and test error
+        train_acc = 100 * evaluate_accuracy(train_loader, net.to('cpu'))
+        test_acc = 100 * evaluate_accuracy(test_loader, net.to('cpu'))
+
+        # Development of performance
+        train_accs.append(train_acc)
+        test_accs.append(test_acc)
+
+        # Print performance
+        print('Epoch: {:.0f}'.format(epoch + 1))
+        print('Accuracy of train set: {:.00f}%'.format(train_acc))
+        print('Accuracy of test set: {:.00f}%'.format(test_acc))
+        print('')
 
 
 def test(test_loader, net, criterion):
@@ -92,20 +151,14 @@ def test(test_loader, net, criterion):
     return avg_loss / len(test_loader), 100 * correct / total
 
 
-def load_data():
-    with open("data/pre-processed.pkl", "rb") as f:
-        dataset = pkl.load(f)
-        (train_data, train_labels), (test_data, test_labels) = dataset
-    return train_data, train_labels, test_data, test_labels
-
-
-class Model(nn.Module):
+class DeepConvLSTM(nn.Module):
     def __init__(self):
-        super(Model, self).__init__()
+        super(DeepConvLSTM, self).__init__()
         self.cl2 = nn.Conv1d(INPUT_CHANNELS, CONV_HIDDEN_CHANNELS, FILTER_SIZE)
         self.cl3 = nn.Conv1d(CONV_HIDDEN_CHANNELS, CONV_HIDDEN_CHANNELS, FILTER_SIZE)
         self.cl4 = nn.Conv1d(CONV_HIDDEN_CHANNELS, CONV_HIDDEN_CHANNELS, FILTER_SIZE)
         self.cl5 = nn.Conv1d(CONV_HIDDEN_CHANNELS, CONV_HIDDEN_CHANNELS, FILTER_SIZE)
+        self.flatten = nn.Flatten()
         self.dropout = nn.Dropout(DROP_RATE)
         self.rec6 = nn.LSTM(CONV_HIDDEN_CHANNELS * NUM_SENSOR_CHANNELS, LSTM_HIDDEN_CHANNELS)
         self.rec7 = nn.LSTM(LSTM_HIDDEN_CHANNELS, LSTM_HIDDEN_CHANNELS)
@@ -113,40 +166,39 @@ class Model(nn.Module):
         self.softmax = nn.Softmax(LSTM_HIDDEN_CHANNELS)
 
     def forward(self, x):
+        x = torch.transpose(x, 0, 1)
         x = self.cl2(x)
         x = self.cl3(x)
         x = self.cl4(x)
         x = self.cl5(x)
-        x = x.view(-1, CONV_HIDDEN_CHANNELS * NUM_SENSOR_CHANNELS)
-        x = nn.ReLU(x)
+        x = self.flatten(x)
+        x = nn.functional.relu(x)
         x = self.dropout(x)
         x = self.rec6(x)
-        x = nn.ReLU(x)
+        x = nn.functional.relu(x)
         x = self.dropout(x)
         x = self.rec7(x)
         x = self.dropout(x)
-        x = nn.ReLU(x)
+        x = nn.functional.relu(x)
         x = self.fc8(x)
         x = self.softmax(x)
         return x
 
-    def backward(self, x):
-        x = self.fc8(x)
-        x = self.dropout(x)
-        x = nn.ReLU(x)
-        x = self.rec7(x)
-        x = self.dropout(x)
-        x = nn.ReLU(x)
-        x = self.rec6(x)
-        x = self.dropout(x)
-        x = nn.ReLU(x)
-        x = x.view(-1, CONV_HIDDEN_CHANNELS * NUM_SENSOR_CHANNELS)
-        x = self.cl5(x)
-        x = self.cl4(x)
-        x = self.cl3(x)
-        x = self.cl2(x)
-        return x
+
+def init_params(params_iter):
+    for param in params_iter:
+        nn.init.normal_(param)
 
 
 if __name__ == "__main__":
-    load_data()
+    print("loading data")
+    training_dataloader = DataLoader(OpportunityDataset("data/pre-processed.pkl", "train"), batch_size=100)
+    test_dataloader = DataLoader(OpportunityDataset("data/pre-processed.pkl", "test"), batch_size=100)
+    print("data loaded")
+
+    net = DeepConvLSTM()
+
+    loss_criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.RMSprop(net.parameters(), lr=LEARNING_RATE, weight_decay=DECAY)
+    init_params(net.parameters())
+    train(training_dataloader, test_dataloader, net, optimizer, loss_criterion)
