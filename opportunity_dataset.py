@@ -5,10 +5,6 @@ import pickle as pkl
 
 from torch.utils.data.dataset import T_co
 
-import more_itertools as mit
-
-from sliding_window import sliding_window
-
 
 class OpportunityDataset(Dataset):
     def __init__(self, file_path, sliding_window_length, sliding_window_step, train_or_test="train"):

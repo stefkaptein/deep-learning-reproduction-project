@@ -165,34 +165,32 @@ class DeepConvLSTM(nn.Module):
         self.cl5 = nn.Conv2d(CONV_HIDDEN_CHANNELS, CONV_HIDDEN_CHANNELS, (5, 1), groups=1)
         self.flatten = nn.Flatten()
         self.dropout = nn.Dropout(DROP_RATE)
-        self.rec6 = nn.LSTM(CONV_HIDDEN_CHANNELS * NUM_SENSOR_CHANNELS, LSTM_HIDDEN_CHANNELS)
-        self.rec7 = nn.LSTM(LSTM_HIDDEN_CHANNELS, LSTM_HIDDEN_CHANNELS)
+        self.rec6 = nn.LSTM(CONV_HIDDEN_CHANNELS * NUM_SENSOR_CHANNELS, LSTM_HIDDEN_CHANNELS, batch_first=True)
+        self.rec7 = nn.LSTM(LSTM_HIDDEN_CHANNELS, LSTM_HIDDEN_CHANNELS, batch_first=True)
         self.fc8 = nn.Linear(LSTM_HIDDEN_CHANNELS, NUM_CLASSES)
-        self.softmax = nn.Softmax(LSTM_HIDDEN_CHANNELS)
+        self.softmax = nn.Softmax(1)
 
     def forward(self, x):
         print("Initial shape [%s]" % str(x.shape))
         b, w, s = x.shape
         x = x.reshape((b, 1, w, s))
-        print("Shape after transpose [%s]" % str(x.shape))
         x = self.cl2(x)
-        print("Shape after first conv [%s]" % str(x.shape))
         x = self.cl3(x)
-        print("Shape after second conv [%s]" % str(x.shape))
         x = self.cl4(x)
-        print("Shape after third conv [%s]" % str(x.shape))
         x = self.cl5(x)
-        print("Shape after last conv [%s]" % str(x.shape))
         x = nn.functional.relu(x)
         x = self.dropout(x)
-        print("Shape before LSTM [%s]" % str(x.shape))
-        x = self.rec6(x)
+        x = x.transpose(1, 2)
+        x = torch.flatten(x, start_dim=2)
+        x = self.rec6(x)[0]
         x = nn.functional.relu(x)
         x = self.dropout(x)
-        x = self.rec7(x)
+        x = self.rec7(x)[0]
         x = self.dropout(x)
         x = nn.functional.relu(x)
+        print("Shape before FC [%s]" % str(x.shape))
         x = self.fc8(x)
+        print("Shape before SOFTMAX [%s]" % str(x.shape))
         x = self.softmax(x)
         return x
 
