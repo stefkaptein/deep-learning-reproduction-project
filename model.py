@@ -19,11 +19,14 @@ NUM_CLASSES = 18
 DROP_RATE = 0.5
 
 # Training parameters
-LEARNING_RATE = 10**-3
+LEARNING_RATE = 10 ** -3
 EPOCHS = 3
 
 BATCH_SIZE = 100
 DECAY = 0.9
+
+SLIDING_WINDOW_LENGTH = 24
+SLIDING_WINDOW_STEP = 12
 
 
 def try_gpu():
@@ -55,7 +58,7 @@ def evaluate_accuracy(data_loader, net, device=torch.device('cpu')):
             y = y.long()
             acc_sum += torch.sum((torch.argmax(net(X), dim=1) == y))
             n += y.shape[0]  # increases with the number of samples in the batch
-    return acc_sum.item()/n
+    return acc_sum.item() / n
 
 
 def train(train_loader, test_loader, net, optimizer, criterion):
@@ -154,10 +157,10 @@ def test(test_loader, net, criterion):
 class DeepConvLSTM(nn.Module):
     def __init__(self):
         super(DeepConvLSTM, self).__init__()
-        self.cl2 = nn.Conv1d(INPUT_CHANNELS, CONV_HIDDEN_CHANNELS, FILTER_SIZE)
-        self.cl3 = nn.Conv1d(CONV_HIDDEN_CHANNELS, CONV_HIDDEN_CHANNELS, FILTER_SIZE)
-        self.cl4 = nn.Conv1d(CONV_HIDDEN_CHANNELS, CONV_HIDDEN_CHANNELS, FILTER_SIZE)
-        self.cl5 = nn.Conv1d(CONV_HIDDEN_CHANNELS, CONV_HIDDEN_CHANNELS, FILTER_SIZE)
+        self.cl2 = nn.Conv2d(INPUT_CHANNELS, INPUT_CHANNELS, (5, 1))
+        self.cl3 = nn.Conv2d(INPUT_CHANNELS, INPUT_CHANNELS, (5, 1))
+        self.cl4 = nn.Conv2d(INPUT_CHANNELS, INPUT_CHANNELS, (5, 1))
+        self.cl5 = nn.Conv2d(INPUT_CHANNELS, INPUT_CHANNELS, (5, 1))
         self.flatten = nn.Flatten()
         self.dropout = nn.Dropout(DROP_RATE)
         self.rec6 = nn.LSTM(CONV_HIDDEN_CHANNELS * NUM_SENSOR_CHANNELS, LSTM_HIDDEN_CHANNELS)
@@ -166,14 +169,18 @@ class DeepConvLSTM(nn.Module):
         self.softmax = nn.Softmax(LSTM_HIDDEN_CHANNELS)
 
     def forward(self, x):
-        x = torch.transpose(x, 0, 1)
+        print("Initial shape [%s]" % str(x.shape))
+        print("Shape after transpose [%s]" % str(x.shape))
         x = self.cl2(x)
+        print("Shape after first conv [%s]" % str(x.shape))
         x = self.cl3(x)
         x = self.cl4(x)
         x = self.cl5(x)
+        print("Shape after conv layers [%s]" % str(x.shape))
         x = self.flatten(x)
         x = nn.functional.relu(x)
         x = self.dropout(x)
+        print("Shape before LSTM [%s]" % str(x.shape))
         x = self.rec6(x)
         x = nn.functional.relu(x)
         x = self.dropout(x)
@@ -192,8 +199,12 @@ def init_params(params_iter):
 
 if __name__ == "__main__":
     print("loading data")
-    training_dataloader = DataLoader(OpportunityDataset("data/pre-processed.pkl", "train"), batch_size=100)
-    test_dataloader = DataLoader(OpportunityDataset("data/pre-processed.pkl", "test"), batch_size=100)
+    training_dataloader = DataLoader(
+        OpportunityDataset("data/pre-processed.pkl", SLIDING_WINDOW_LENGTH, SLIDING_WINDOW_STEP, train_or_test="train"),
+        batch_size=100)
+    test_dataloader = DataLoader(
+        OpportunityDataset("data/pre-processed.pkl", SLIDING_WINDOW_LENGTH, SLIDING_WINDOW_STEP, train_or_test="test"),
+        batch_size=100)
     print("data loaded")
 
     net = DeepConvLSTM()
