@@ -37,7 +37,7 @@ class OpportunityDataset(Dataset):
         data_y = sliding_window_view(flatted_labels, window_size)[::step_size]
         data_y = np.reshape(data_y, (-1, window_size))
         data_y = self.__convert_windows_to_single_values(data_y)
-        data_y = self.__to_one_hot_encoded(data_y)
+        # data_y = self.__to_one_hot_encoded(data_y)
 
         data_y = data_y.astype("int64")
 

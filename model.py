@@ -74,8 +74,6 @@ def train(train_loader, test_loader, net, optimizer, criterion):
 
         # Training loop
         for i, (x_batch, y_batch) in enumerate(train_loader):
-            if x_batch.shape[0] != BATCH_SIZE:
-                continue
             # Set to same device
             x_batch, y_batch = x_batch.to(device), y_batch.to(device)
 
@@ -134,9 +132,6 @@ def test(test_loader, net, criterion):
     with torch.no_grad():
         # iterate through batches
         for inputs, labels in test_loader:
-            if inputs.shape[0] != BATCH_SIZE:
-                continue
-
             inputs, labels = inputs.to(device), labels.to(device)
 
             # forward pass
@@ -189,7 +184,7 @@ class DeepConvLSTM(nn.Module):
         x = x.reshape((-1, 128))
         x = self.fc8(x)
         x = self.softmax(x)
-        x = x.reshape((BATCH_SIZE, 8, NUM_CLASSES)).select(1, -1)
+        x = x.reshape((b, 8, NUM_CLASSES)).select(1, -1)
 
         return x
 
