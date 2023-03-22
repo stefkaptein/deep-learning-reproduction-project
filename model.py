@@ -5,6 +5,9 @@ from torch.utils.data import DataLoader
 from config import DECAY, LEARNING_RATE, SLIDING_WINDOW_STEP, SLIDING_WINDOW_LENGTH, NUM_CLASSES, LSTM_HIDDEN_CHANNELS, \
     NUM_SENSOR_CHANNELS, CONV_HIDDEN_CHANNELS, DROP_RATE, EPOCHS, SAVE_MODEL_NAME, FILTER_SIZE, BATCH_SIZE
 from opportunity_dataset import OpportunityDataset
+from torchsummary import summary
+from torch.utils.tensorboard import SummaryWriter
+from torchvision import datasets, transforms
 
 
 def try_gpu():
@@ -50,6 +53,7 @@ def train(train_loader, test_loader, net, optimizer, criterion):
         optimizer: Optimizer (e.g. SGD).
         criterion: Loss function (e.g. cross-entropy loss).
     """
+    writer = SummaryWriter("runs")
 
     train_losses = []
     train_accs = []
@@ -98,6 +102,11 @@ def train(train_loader, test_loader, net, optimizer, criterion):
         print('Accuracy of train set: {:.00f}%'.format(train_acc))
         print('Accuracy of test set: {:.00f}%'.format(test_acc))
         print('')
+
+        writer.add_scalars('Accuracy', {'Train': train_acc, 'Test': test_acc}, epoch)
+
+    writer.flush()
+    writer.close()
 
 
 def test(test_loader, net, criterion):
