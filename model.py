@@ -142,10 +142,10 @@ def test(test_loader, net, criterion):
 class DeepConvLSTM(nn.Module):
     def __init__(self):
         super(DeepConvLSTM, self).__init__()
-        self.cl2 = nn.Conv2d(1, CONV_HIDDEN_CHANNELS, (5, 1), groups=1)
-        self.cl3 = nn.Conv2d(CONV_HIDDEN_CHANNELS, CONV_HIDDEN_CHANNELS, (5, 1), groups=1)
-        self.cl4 = nn.Conv2d(CONV_HIDDEN_CHANNELS, CONV_HIDDEN_CHANNELS, (5, 1), groups=1)
-        self.cl5 = nn.Conv2d(CONV_HIDDEN_CHANNELS, CONV_HIDDEN_CHANNELS, (5, 1), groups=1)
+        self.cl2 = nn.Conv2d(1, CONV_HIDDEN_CHANNELS, (FILTER_SIZE, 1))
+        self.cl3 = nn.Conv2d(CONV_HIDDEN_CHANNELS, CONV_HIDDEN_CHANNELS, (FILTER_SIZE, 1))
+        self.cl4 = nn.Conv2d(CONV_HIDDEN_CHANNELS, CONV_HIDDEN_CHANNELS, (FILTER_SIZE, 1))
+        self.cl5 = nn.Conv2d(CONV_HIDDEN_CHANNELS, CONV_HIDDEN_CHANNELS, (FILTER_SIZE, 1))
         self.flatten = nn.Flatten()
         self.dropout = nn.Dropout(DROP_RATE)
         self.rec6 = nn.LSTM(CONV_HIDDEN_CHANNELS * NUM_SENSOR_CHANNELS, LSTM_HIDDEN_CHANNELS, batch_first=True)
@@ -178,6 +178,7 @@ class DeepConvLSTM(nn.Module):
         x = self.fc8(x)
 
         x = self.softmax(x)
+
         return x
 
 
@@ -187,20 +188,22 @@ def init_params(params_iter):
 
 
 if __name__ == "__main__":
-    print("loading data")
+    print("Loading and applying sliding window over data")
     training_dataloader = DataLoader(
         OpportunityDataset("data/pre-processed.pkl", train_or_test="train"),
-        batch_size=100)
+        batch_size=BATCH_SIZE)
     test_dataloader = DataLoader(
         OpportunityDataset("data/pre-processed.pkl", train_or_test="test"),
-        batch_size=100)
-    print("data loaded")
+        batch_size=BATCH_SIZE)
+    print("Data loaded and sliding window applied")
 
     net = DeepConvLSTM()
 
     loss_criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.RMSprop(net.parameters(), lr=LEARNING_RATE, weight_decay=DECAY)
+
     init_params(net.parameters())
+
     train(training_dataloader, test_dataloader, net, optimizer, loss_criterion)
 
     print("saving model")
