@@ -2,33 +2,9 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
+from config import DECAY, LEARNING_RATE, SLIDING_WINDOW_STEP, SLIDING_WINDOW_LENGTH, NUM_CLASSES, LSTM_HIDDEN_CHANNELS, \
+    NUM_SENSOR_CHANNELS, CONV_HIDDEN_CHANNELS, DROP_RATE, EPOCHS
 from opportunity_dataset import OpportunityDataset
-
-CONV_HIDDEN_CHANNELS = 64
-
-NUM_FILTERS = 64
-
-FILTER_SIZE = 5
-
-LSTM_HIDDEN_CHANNELS = 128
-
-NUM_SENSOR_CHANNELS = 113
-
-INPUT_CHANNELS = NUM_SENSOR_CHANNELS
-
-NUM_CLASSES = 18
-
-DROP_RATE = 0.5
-
-# Training parameters
-LEARNING_RATE = 10 ** -3
-EPOCHS = 3
-
-BATCH_SIZE = 100
-DECAY = 0.9
-
-SLIDING_WINDOW_LENGTH = 24
-SLIDING_WINDOW_STEP = 12
 
 
 def try_gpu():
@@ -87,6 +63,8 @@ def train(train_loader, test_loader, net, optimizer, criterion):
         # Network in training mode and to device
         net.train()
         net.to(device)
+
+        print('Starting epoch: {:.0f}'.format(epoch + 1))
 
         # Training loop
         for i, (x_batch, y_batch) in enumerate(train_loader):
@@ -171,26 +149,29 @@ class DeepConvLSTM(nn.Module):
         self.softmax = nn.Softmax(1)
 
     def forward(self, x):
-        print("Initial shape [%s]" % str(x.shape))
         b, w, s = x.shape
         x = x.reshape((b, 1, w, s))
+
         x = self.cl2(x)
         x = self.cl3(x)
         x = self.cl4(x)
         x = self.cl5(x)
+
         x = nn.functional.relu(x)
         x = self.dropout(x)
         x = x.transpose(1, 2)
         x = torch.flatten(x, start_dim=2)
+
         x = self.rec6(x)[0]
         x = nn.functional.relu(x)
         x = self.dropout(x)
+
         x = self.rec7(x)[0]
         x = self.dropout(x)
         x = nn.functional.relu(x)
-        print("Shape before FC [%s]" % str(x.shape))
+
         x = self.fc8(x)
-        print("Shape before SOFTMAX [%s]" % str(x.shape))
+
         x = self.softmax(x)
         return x
 
@@ -203,10 +184,10 @@ def init_params(params_iter):
 if __name__ == "__main__":
     print("loading data")
     training_dataloader = DataLoader(
-        OpportunityDataset("data/pre-processed.pkl", SLIDING_WINDOW_LENGTH, SLIDING_WINDOW_STEP, train_or_test="train"),
+        OpportunityDataset("data/pre-processed.pkl", train_or_test="train"),
         batch_size=100)
     test_dataloader = DataLoader(
-        OpportunityDataset("data/pre-processed.pkl", SLIDING_WINDOW_LENGTH, SLIDING_WINDOW_STEP, train_or_test="test"),
+        OpportunityDataset("data/pre-processed.pkl", train_or_test="test"),
         batch_size=100)
     print("data loaded")
 
