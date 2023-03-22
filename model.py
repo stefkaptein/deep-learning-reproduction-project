@@ -6,6 +6,8 @@ from opportunity_dataset import OpportunityDataset
 
 CONV_HIDDEN_CHANNELS = 64
 
+NUM_FILTERS = 64
+
 FILTER_SIZE = 5
 
 LSTM_HIDDEN_CHANNELS = 128
@@ -157,10 +159,10 @@ def test(test_loader, net, criterion):
 class DeepConvLSTM(nn.Module):
     def __init__(self):
         super(DeepConvLSTM, self).__init__()
-        self.cl2 = nn.Conv2d(INPUT_CHANNELS, INPUT_CHANNELS, (5, 1))
-        self.cl3 = nn.Conv2d(INPUT_CHANNELS, INPUT_CHANNELS, (5, 1))
-        self.cl4 = nn.Conv2d(INPUT_CHANNELS, INPUT_CHANNELS, (5, 1))
-        self.cl5 = nn.Conv2d(INPUT_CHANNELS, INPUT_CHANNELS, (5, 1))
+        self.cl2 = nn.Conv2d(1, CONV_HIDDEN_CHANNELS, (5, 1), groups=1)
+        self.cl3 = nn.Conv2d(CONV_HIDDEN_CHANNELS, CONV_HIDDEN_CHANNELS, (5, 1), groups=1)
+        self.cl4 = nn.Conv2d(CONV_HIDDEN_CHANNELS, CONV_HIDDEN_CHANNELS, (5, 1), groups=1)
+        self.cl5 = nn.Conv2d(CONV_HIDDEN_CHANNELS, CONV_HIDDEN_CHANNELS, (5, 1), groups=1)
         self.flatten = nn.Flatten()
         self.dropout = nn.Dropout(DROP_RATE)
         self.rec6 = nn.LSTM(CONV_HIDDEN_CHANNELS * NUM_SENSOR_CHANNELS, LSTM_HIDDEN_CHANNELS)
@@ -170,14 +172,17 @@ class DeepConvLSTM(nn.Module):
 
     def forward(self, x):
         print("Initial shape [%s]" % str(x.shape))
+        b, w, s = x.shape
+        x = x.reshape((b, 1, w, s))
         print("Shape after transpose [%s]" % str(x.shape))
         x = self.cl2(x)
         print("Shape after first conv [%s]" % str(x.shape))
         x = self.cl3(x)
+        print("Shape after second conv [%s]" % str(x.shape))
         x = self.cl4(x)
+        print("Shape after third conv [%s]" % str(x.shape))
         x = self.cl5(x)
-        print("Shape after conv layers [%s]" % str(x.shape))
-        x = self.flatten(x)
+        print("Shape after last conv [%s]" % str(x.shape))
         x = nn.functional.relu(x)
         x = self.dropout(x)
         print("Shape before LSTM [%s]" % str(x.shape))
