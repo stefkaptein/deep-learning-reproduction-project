@@ -33,6 +33,8 @@ def evaluate_accuracy(data_loader, net, device=torch.device('cpu')):
     n = 0
 
     for X, y in data_loader:
+        if X.shape[0] != BATCH_SIZE:
+            continue
         # Copy the data to device.
         X, y = X.to(device), y.to(device)
         with torch.no_grad():
@@ -72,6 +74,8 @@ def train(train_loader, test_loader, net, optimizer, criterion):
 
         # Training loop
         for i, (x_batch, y_batch) in enumerate(train_loader):
+            if x_batch.shape[0] != BATCH_SIZE:
+                continue
             # Set to same device
             x_batch, y_batch = x_batch.to(device), y_batch.to(device)
 
@@ -90,8 +94,8 @@ def train(train_loader, test_loader, net, optimizer, criterion):
             optimizer.step()
 
         # Compute train and test error
-        train_acc = evaluate_accuracy(train_loader, net.to(device), device)
-        test_acc = evaluate_accuracy(test_loader, net.to(device), device)
+        train_acc = evaluate_accuracy(train_loader, net, device)
+        test_acc = evaluate_accuracy(test_loader, net, device)
 
         # Development of performance
         train_accs.append(train_acc)
@@ -129,9 +133,9 @@ def test(test_loader, net, criterion):
     # Use torch.no_grad to skip gradient calculation, not needed for evaluation
     with torch.no_grad():
         # iterate through batches
-        for data in test_loader:
-            # get the inputs; data is a list of [inputs, labels]
-            inputs, labels = data
+        for inputs, labels in test_loader:
+            if inputs.shape[0] != BATCH_SIZE:
+                continue
 
             inputs, labels = inputs.to(device), labels.to(device)
 
@@ -145,7 +149,7 @@ def test(test_loader, net, criterion):
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
 
-    return avg_loss / len(test_loader), 100 * correct / total
+    return avg_loss / len(test_loader), correct / total
 
 
 class DeepConvLSTM(nn.Module):
@@ -166,27 +170,26 @@ class DeepConvLSTM(nn.Module):
         b, w, s = x.shape
         x = x.reshape((b, 1, w, s))
 
-        x = self.cl2(x)
-        x = self.cl3(x)
-        x = self.cl4(x)
-        x = self.cl5(x)
+        x = nn.functional.relu(self.cl2(x))
+        x = nn.functional.relu(self.cl3(x))
+        x = nn.functional.relu(self.cl4(x))
+        x = nn.functional.relu(self.cl5(x))
 
-        x = nn.functional.relu(x)
-        x = self.dropout(x)
         x = x.transpose(1, 2)
         x = torch.flatten(x, start_dim=2)
 
+        x = self.dropout(x)
         x = self.rec6(x)[0]
-        x = nn.functional.relu(x)
-        x = self.dropout(x)
+        x = torch.tanh(x)
 
+        x = self.dropout(x)
         x = self.rec7(x)[0]
-        x = self.dropout(x)
-        x = nn.functional.relu(x)
+        x = torch.tanh(x)
 
+        x = x.reshape((-1, 128))
         x = self.fc8(x)
-
         x = self.softmax(x)
+        x = x.reshape((BATCH_SIZE, 8, NUM_CLASSES)).select(1, -1)
 
         return x
 
