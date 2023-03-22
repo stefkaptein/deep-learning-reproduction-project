@@ -10,3 +10,9 @@ Reproduction of the 'Deep Convolutional and LSTM Recurrent Neural Networks for M
 ## Dataset
 The zip downloaded from the [link above](https://archive.ics.uci.edu/ml/machine-learning-databases/00226/OpportunityUCIDataset.zip) should be extracted in the `data` directory,  in the root directory of the project. The path to the dataset should be: 
 `~/data/OpportunityUCIDataset/dataset/`.
+
+## Running tensorboard
+
+```commandline
+tensorboard --logdir runs/
+```
