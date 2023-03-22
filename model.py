@@ -216,3 +216,9 @@ if __name__ == "__main__":
     optimizer = torch.optim.RMSprop(net.parameters(), lr=LEARNING_RATE, weight_decay=DECAY)
     init_params(net.parameters())
     train(training_dataloader, test_dataloader, net, optimizer, loss_criterion)
+
+    print("saving model")
+    torch.save(net.state_dict(), "DeepConvLSTM_Opportunity_Model.pt")
+    print("model saved")
+    print("testing model")
+    test(test_dataloader, net, loss_criterion)
