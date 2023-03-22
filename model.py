@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from config import DECAY, LEARNING_RATE, SLIDING_WINDOW_STEP, SLIDING_WINDOW_LENGTH, NUM_CLASSES, LSTM_HIDDEN_CHANNELS, \
-    NUM_SENSOR_CHANNELS, CONV_HIDDEN_CHANNELS, DROP_RATE, EPOCHS
+from config import DECAY, LEARNING_RATE, SLIDING_WINDOW_STEP, SLIDING_WINDOW_LENGTH, NUM_CLASSES, LSTM_HIDDEN_CHANNELS,\
+    NUM_SENSOR_CHANNELS, CONV_HIDDEN_CHANNELS, DROP_RATE, EPOCHS, SAVE_MODEL_NAME
 from opportunity_dataset import OpportunityDataset
 
 
@@ -86,8 +86,8 @@ def train(train_loader, test_loader, net, optimizer, criterion):
             optimizer.step()
 
         # Compute train and test error
-        train_acc = 100 * evaluate_accuracy(train_loader, net.to('cpu'))
-        test_acc = 100 * evaluate_accuracy(test_loader, net.to('cpu'))
+        train_acc = evaluate_accuracy(train_loader, net.to(device), device)
+        test_acc = evaluate_accuracy(test_loader, net.to(device), device)
 
         # Development of performance
         train_accs.append(train_acc)
@@ -109,10 +109,13 @@ def test(test_loader, net, criterion):
         net: Neural network model.
         criterion: Loss function (e.g. cross-entropy loss).
     """
+    device = try_gpu()
 
     avg_loss = 0
     correct = 0
     total = 0
+
+    net.to(device)
 
     # Use torch.no_grad to skip gradient calculation, not needed for evaluation
     with torch.no_grad():
@@ -120,6 +123,8 @@ def test(test_loader, net, criterion):
         for data in test_loader:
             # get the inputs; data is a list of [inputs, labels]
             inputs, labels = data
+
+            inputs, labels = inputs.to(device), labels.to(device)
 
             # forward pass
             outputs = net(inputs)
@@ -199,7 +204,14 @@ if __name__ == "__main__":
     train(training_dataloader, test_dataloader, net, optimizer, loss_criterion)
 
     print("saving model")
-    torch.save(net.state_dict(), "DeepConvLSTM_Opportunity_Model.pt")
+    torch.save(net.state_dict(), SAVE_MODEL_NAME)
     print("model saved")
+
+    print("loading model")
+    net.load_state_dict(torch.load(SAVE_MODEL_NAME))
     print("testing model")
-    test(test_dataloader, net, loss_criterion)
+
+    loss, accuracy = test(test_dataloader, net, loss_criterion)
+
+    print('Test loss: {:.00f}%'.format(loss))
+    print('Test accuracy: {:.00f}%'.format(accuracy))
