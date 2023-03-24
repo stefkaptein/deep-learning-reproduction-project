@@ -24,9 +24,7 @@ def train(train_loader, model, optimizer, criterion):
     """
 
     avg_loss = 0
-    tps = 0
-    fns = 0
-
+    correct = 0
     total = 0
 
     # Switch to train mode
@@ -42,16 +40,17 @@ def train(train_loader, model, optimizer, criterion):
         outputs = model(inputs)
 
         loss = criterion(outputs, labels)
+
         loss.backward()
         optimizer.step()
+
         # Keep track of loss and accuracy
         avg_loss += loss
         _, predicted = torch.max(outputs.data, 1)
         total += labels.size(0)
-        tps += (predicted == labels).sum().item()
-        # fns += (predicted != labels).sum().item()
+        correct += (predicted == labels).sum().item()
 
-    return avg_loss / len(train_loader), 100 * tps / total
+    return avg_loss / len(train_loader), 100 * correct / total
 
 
 def test(test_loader, model, criterion):
@@ -89,6 +88,7 @@ def test(test_loader, model, criterion):
             test_true = np.append(test_true, labels.cpu(), axis=0)
 
             loss = criterion(outputs, labels)
+
             # Keep track of loss and accuracy
             avg_loss += loss
             _, predicted = torch.max(outputs.data, 1)
@@ -100,8 +100,9 @@ def test(test_loader, model, criterion):
 
 
 def init_params(params_iter):
-    for param in params_iter:
-        nn.init.normal_(param)
+    for name, param in params_iter:
+        if 'weight' in name:
+            nn.init.orthogonal_(param)
 
 
 def run():
@@ -114,16 +115,18 @@ def run():
 
     # Create loss function and optimizer
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
+    optimizer = torch.optim.RMSprop(model.parameters(), lr=LEARNING_RATE, weight_decay=1-DECAY)
 
-    init_params(model.parameters())
+    init_params(model.named_parameters())
 
     print("Loading and applying sliding window over data")
     training_dataloader = DataLoader(
         OpportunityDataset("data/pre-processed.pkl", train_or_test="train"),
+        shuffle=True,
         batch_size=BATCH_SIZE)
     test_dataloader = DataLoader(
         OpportunityDataset("data/pre-processed.pkl", train_or_test="test"),
+        shuffle=True,
         batch_size=BATCH_SIZE)
     print("Data loaded and sliding window applied")
 

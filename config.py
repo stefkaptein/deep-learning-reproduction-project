@@ -15,7 +15,7 @@ NUM_CLASSES = 18
 DROP_RATE = 0.5
 
 # Training parameters
-LEARNING_RATE = 10 ** -3
+LEARNING_RATE = 10e-3
 EPOCHS = 100
 
 BATCH_SIZE = 100

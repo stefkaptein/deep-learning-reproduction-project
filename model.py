@@ -12,8 +12,8 @@ class DeepConvLSTM(nn.Module):
         self.cl3 = nn.Conv2d(CONV_HIDDEN_CHANNELS, CONV_HIDDEN_CHANNELS, (FILTER_SIZE, 1))
         self.cl4 = nn.Conv2d(CONV_HIDDEN_CHANNELS, CONV_HIDDEN_CHANNELS, (FILTER_SIZE, 1))
         self.cl5 = nn.Conv2d(CONV_HIDDEN_CHANNELS, CONV_HIDDEN_CHANNELS, (FILTER_SIZE, 1))
-        self.flatten = nn.Flatten()
-        self.dropout = nn.Dropout(DROP_RATE)
+        self.dropout1 = nn.Dropout(DROP_RATE)
+        self.dropout2 = nn.Dropout(DROP_RATE)
         self.rec6 = nn.LSTM(CONV_HIDDEN_CHANNELS * NUM_SENSOR_CHANNELS, LSTM_HIDDEN_CHANNELS, batch_first=True)
         self.rec7 = nn.LSTM(LSTM_HIDDEN_CHANNELS, LSTM_HIDDEN_CHANNELS, batch_first=True)
         self.fc8 = nn.Linear(LSTM_HIDDEN_CHANNELS, NUM_CLASSES)
@@ -29,19 +29,21 @@ class DeepConvLSTM(nn.Module):
         x = nn.functional.relu(self.cl5(x))
 
         x = x.transpose(1, 2)
-        x = torch.flatten(x, start_dim=2)
+        # Flatten
+        x = x.reshape(b, 8, s*CONV_HIDDEN_CHANNELS)
 
-        x = self.dropout(x)
+        x = self.dropout1(x)
+        # Tanh done by LSTM itself
         x = self.rec6(x)[0]
-        x = torch.tanh(x)
 
-        x = self.dropout(x)
+        x = self.dropout2(x)
+        # Tanh done by LSTM itself
         x = self.rec7(x)[0]
-        x = torch.tanh(x)
 
         x = x.reshape((-1, 128))
         x = self.fc8(x)
         x = self.softmax(x)
-        x = x.reshape((b, 8, NUM_CLASSES)).select(1, -1)
+        x = x.reshape((b, 8, NUM_CLASSES))
+        x = x.select(1, -1)
 
         return x
