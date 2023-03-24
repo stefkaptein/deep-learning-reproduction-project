@@ -31,13 +31,12 @@ class OpportunityDataset(Dataset):
 
         data_x = sliding_window_view(flatted_sensor_data, window_size*NUM_SENSOR_CHANNELS)
         data_x = data_x[::step_size*NUM_SENSOR_CHANNELS]
-        data_x = self.__truncate_to_length_of_labels(data_x, flatted_labels)
+        # data_x = self.__truncate_to_length_of_labels(data_x, flatted_labels)
         data_x = np.reshape(data_x, (-1, window_size, NUM_SENSOR_CHANNELS))
 
         data_y = sliding_window_view(flatted_labels, window_size)[::step_size]
         data_y = np.reshape(data_y, (-1, window_size))
         data_y = self.__convert_windows_to_single_values(data_y)
-        # data_y = self.__to_one_hot_encoded(data_y)
 
         data_y = data_y.astype("int64")
 
@@ -53,10 +52,6 @@ class OpportunityDataset(Dataset):
     @staticmethod
     def __get_value_of_last_element_in_window(window):
         return window[-1]
-
-    @staticmethod
-    def __to_one_hot_encoded(labels):
-        return np.eye(NUM_CLASSES)[labels]
 
     def __len__(self):
         return len(self.sensor_data)

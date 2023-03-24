@@ -1,8 +1,10 @@
+import numpy as np
 import torch
 import torch.nn as nn
+from sklearn import metrics
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-
+from tqdm import tqdm
 from config import DECAY, LEARNING_RATE, EPOCHS, SAVE_MODEL_NAME, BATCH_SIZE
 from model import DeepConvLSTM
 from opportunity_dataset import OpportunityDataset
@@ -22,34 +24,34 @@ def train(train_loader, model, optimizer, criterion):
     """
 
     avg_loss = 0
-    correct = 0
+    tps = 0
+    fns = 0
+
     total = 0
 
     # Switch to train mode
     model.train()
 
     # Iterate through batches
-    for i, (x_batch, y_batch) in enumerate(train_loader):
+    for i, (inputs, labels) in enumerate(train_loader):
+        inputs = inputs.to(DEVICE)
+        labels = labels.to(DEVICE)
 
         optimizer.zero_grad()
 
-        x_batch = x_batch.to(DEVICE)
-        y_batch = y_batch.to(DEVICE)
+        outputs = model(inputs)
 
-        output = model(x_batch)
-        loss = criterion(output, y_batch)
-
+        loss = criterion(outputs, labels)
         loss.backward()
-
         optimizer.step()
-
         # Keep track of loss and accuracy
-        avg_loss += loss.item()
-        _, predicted = torch.max(output, 1)
-        total += y_batch.size(0)
-        correct += (predicted == y_batch).sum().item()
+        avg_loss += loss
+        _, predicted = torch.max(outputs.data, 1)
+        total += labels.size(0)
+        tps += (predicted == labels).sum().item()
+        # fns += (predicted != labels).sum().item()
 
-    return avg_loss / len(train_loader), 100 * correct / total
+    return avg_loss / len(train_loader), 100 * tps / total
 
 
 def test(test_loader, model, criterion):
@@ -69,24 +71,31 @@ def test(test_loader, model, criterion):
     # Switch to evaluation mode
     model.eval()
 
+    test_pred = np.empty((0))
+    test_true = np.empty((0))
     # Use torch.no_grad to skip gradient calculation, not needed for evaluation
     with torch.no_grad():
         # Iterate through batches
-        for i, (x_batch, y_batch) in enumerate(test_loader):
+        for i, (inputs, labels) in enumerate(test_loader):
 
-            x_batch = x_batch.to(DEVICE)
-            y_batch = y_batch.to(DEVICE)
+            inputs = inputs.to(DEVICE)
+            labels = labels.to(DEVICE)
 
             # Forward pass
-            output = model(x_batch)
-            loss = criterion(output, y_batch)
+            outputs = model(inputs)
 
+            outputs2 = torch.max(outputs, dim=1)[1].int()
+            test_pred = np.append(test_pred, outputs2.cpu(), axis=0)
+            test_true = np.append(test_true, labels.cpu(), axis=0)
+
+            loss = criterion(outputs, labels)
             # Keep track of loss and accuracy
-            avg_loss += loss.item()
-            _, predicted = torch.max(output, 1)
-            total += y_batch.size(0)
-            correct += (predicted == y_batch).sum().item()
+            avg_loss += loss
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
 
+    print("\tTest fscore:\t{:.4f} ".format(metrics.f1_score(test_true, test_pred, average='weighted')))
     return avg_loss / len(test_loader), 100 * correct / total
 
 
@@ -105,7 +114,7 @@ def run():
 
     # Create loss function and optimizer
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.RMSprop(model.parameters(), lr=LEARNING_RATE, weight_decay=DECAY)
+    optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
     init_params(model.parameters())
 
@@ -136,8 +145,8 @@ def run():
         print(f"Train loss: {train_loss}")
         print(f"Test loss: {test_loss}")
 
-        print(f"Train Accuracy: {train_loss}")
-        print(f"Test Accuracy: {test_loss}")
+        print(f"Train Accuracy: {train_acc}")
+        print(f"Test Accuracy: {test_acc}")
 
         # Write metrics to Tensorboard
         writer.add_scalars('Loss', {
