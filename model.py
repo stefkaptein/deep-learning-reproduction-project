@@ -33,17 +33,12 @@ class DeepConvLSTM(nn.Module):
         x = x.reshape(b, 8, s*CONV_HIDDEN_CHANNELS)
 
         x = self.dropout1(x)
-        # Tanh done by LSTM itself
         x = self.rec6(x)[0]
 
         x = self.dropout2(x)
-        # Tanh done by LSTM itself
         x = self.rec7(x)[0]
 
-        x = x.reshape((-1, 128))
         x = self.fc8(x)
-        x = self.softmax(x)
-        x = x.reshape((b, 8, NUM_CLASSES))
         x = x.select(1, -1)
 
         return x

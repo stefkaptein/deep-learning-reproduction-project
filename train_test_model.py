@@ -113,9 +113,8 @@ def run():
     model = DeepConvLSTM()
     model = model.to(DEVICE)
 
-    # Create loss function and optimizer
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.RMSprop(model.parameters(), lr=LEARNING_RATE, weight_decay=1-DECAY)
+    optimizer = torch.optim.RMSprop(model.parameters(), lr=LEARNING_RATE)
 
     init_params(model.named_parameters())
 
