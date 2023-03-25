@@ -114,7 +114,7 @@ def run():
     model = model.to(DEVICE)
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.RMSprop(model.parameters(), lr=LEARNING_RATE)
+    optimizer = torch.optim.RMSprop(model.parameters(), lr=LEARNING_RATE, alpha=DECAY, weight_decay=0.0001)
 
     init_params(model.named_parameters())
 
