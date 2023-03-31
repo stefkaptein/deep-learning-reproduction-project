@@ -8,8 +8,26 @@ Reproduction of the 'Deep Convolutional and LSTM Recurrent Neural Networks for M
 ## Requirements
 
 ## Dataset
-The zip downloaded from the [link above](https://archive.ics.uci.edu/ml/machine-learning-databases/00226/OpportunityUCIDataset.zip) should be extracted in the `data` directory,  in the root directory of the project. The path to the dataset should be: 
-`~/data/OpportunityUCIDataset/dataset/`.
+The zip downloaded from the [link above](https://archive.ics.uci.edu/ml/machine-learning-databases/00226/OpportunityUCIDataset.zip) should be placed in the `data` directory in the root of the project.
+
+To pre-process the data run the following command:
+```commandline
+python preprocess_data.py -i "data/OpportunityUCIDataset.zip" -o "data/pre-processed.pkl"
+```
+
+## Running the model
+To load the pre-trained model, use the following lines of code:
+```python
+from model import DeepConvLSTM
+import torch
+
+SAVE_MODEL_NAME = "DeepConvLSTM_Opportunity_Model.pt"
+
+model = DeepConvLSTM()
+model.load_state_dict(torch.load(SAVE_MODEL_NAME))
+```
+
+After this you can insert any code you want for evaluating the model.
 
 ## Running tensorboard
 
