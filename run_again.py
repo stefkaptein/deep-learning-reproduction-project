@@ -15,7 +15,7 @@ if __name__ == "__main__":
     model = DeepConvLSTM()
     print("Model created")
 
-    model.load_state_dict(torch.load(SAVE_MODEL_NAME))
+    model.load_state_dict(torch.load(SAVE_MODEL_NAME, map_location=DEVICE))
 
     model.to(DEVICE)
     print("Model loaded")

@@ -9,8 +9,7 @@ from config import DECAY, LEARNING_RATE, EPOCHS, SAVE_MODEL_NAME, BATCH_SIZE
 from model import DeepConvLSTM
 from opportunity_dataset import OpportunityDataset
 
-DEVICE = torch.device('cuda:0')
-
+DEVICE = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 def train(train_loader, model, optimizer, criterion):
     """
