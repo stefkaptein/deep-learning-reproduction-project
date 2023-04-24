@@ -5,6 +5,8 @@ Reproduction of the 'Deep Convolutional and LSTM Recurrent Neural Networks for M
 
 [Dataset download link](https://archive.ics.uci.edu/ml/machine-learning-databases/00226/OpportunityUCIDataset.zip)
 
+[Blog Post](https://medium.com/@tyuan1104/group-50-reproducibility-blog-5648f3d0a8ad)
+
 ## Requirements
 
 ## Dataset
